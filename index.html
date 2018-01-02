@@ -93,8 +93,6 @@
             //record original send button text
             var sndbtntxt = $('#sendButton').text()
 
-            //hide additionalQuestions
-
             //getMessages()
             $("#sendButton").click(()=>{
                 var formData = buildFormDataObj()
@@ -103,11 +101,12 @@
 
             $('input:radio[name=ins_cov]').click(function() {
                 var value = $(this).val();
-                $(".additionalQuestions").toggle(value)
                 
                 if(value == "true"){
+                    $(".additionalQuestions").show()
                     $('#sendButton').text("Check Your Coverage Status")
                 } else {
+                    $(".additionalQuestions").hide()
                     $('#sendButton').text(sndbtntxt)
                 }
                     
@@ -115,10 +114,15 @@
         })
 
         socket.on('result', displayMessage)
+        socket.on('infoSaved', displaySavedMsg)
+
+        function displaySavedMsg(){
+            $("#messages").html("<div class='alert alert-success'>Your information has been saved.</div>")
+        }
 
         function displayMessage(data){
             //clear messages div
-            $("#messages").html("");
+            $("#messages").html("")
 
             //console.log(data)
             obj = jQuery.parseJSON( data );
@@ -128,29 +132,24 @@
                 var activeCoverage = obj.data.coverage.active
                 var svcTypes = obj.data.coverage.service_types
                 var copayAmt = obj.data.coverage.copay[1].copayment.amount
-                console.log("Coverage active status is " + obj.data.coverage.active)
-                console.log(obj.data.coverage.copay[1].copayment.amount + " " + obj.data.coverage.copay[1].copayment.currency)
-                console.log(svcTypes)
+
                 //Check if urgent care is covered
                 urgentCareCovered = inArraySearch("urgent_care", svcTypes)
+
+                //If covered, display message and copay
                 if(urgentCareCovered){
-                    console.log("Urgent Care is covered")
-                    $("#messages").append("<div class='alert alert-success'>Urgent Care services are covered by your insurance provider</div>")
-                    $("#messages").append("<div class='alert alert-success'>Your copayment amount will be <b>$" + copayAmt + "</b></div>")
+                    $("#messages").append("<div class='alert alert-success'>Urgent Care services are covered by your insurance provider.</div>")
+                    $("#messages").append("<div class='alert alert-success'>Your copayment amount will be <b>$" + copayAmt + "</b>.</div>")
                 } else {
-                    $("#messages").append("<div class='alert alert-danger'>Urgent Care services are not covered by your insurance provider</div>")
+                    $("#messages").append("<div class='alert alert-danger'>Urgent Care services are not covered by your insurance provider.</div>")
                 }
 
             } else {
-                //invalid response from API
+                //invalid response from API, display message 
                 $("#messages").append("<div class='alert alert-danger'>We are unable to confirm your insurance coverage.</div>")
-                $("#messages").append("<div class='alert alert-danger'>Please contact your insurance provider for more information.</div>")
+                $("#messages").append("<div class='alert alert-danger'>Please double check the submitted information or contact your insurance provider for more information.</div>")
             }
             
-            
-
-            
-
         }
 
         function buildFormDataObj(){
@@ -170,28 +169,22 @@
             return formDataObj
         }
 
-        function getMessages() {
-            $.get('http://localhost:3000/messages', (data) => {
-                
-            })
-        }
-
         function sendRequest(theFormData){
             $.post('http://localhost:3000/messages', theFormData)
         }
 
+        // return true or false if value is in array
         function inArraySearch(check, array){
             var valueCheck = $.inArray(check, array)
-            console.log(valueCheck)
+
             if (valueCheck == -1){
                 return false
             } else {
-                
                 return true
-                
             }
         }
 
+        // reformat insurance provider names to those that conform to the api requirements
         function convertCarrierName(carrierName){
             if (carrierName == "Blue Cross/Blue Shield"){
                 return "empire_blue_cross_blue_shield"

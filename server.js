@@ -6,8 +6,14 @@ var io = require("socket.io")(http)
 var request = require("request")
 var mongoose = require("mongoose")
 
+app.use(express.static(__dirname))
+app.use(bodyParser.json())
+app.use(bodyParser.urlencoded({extended: false}))
+
+//url for database
 var dbURL = 'mongodb://GoHealthFormData:N83H5hWJZTCa@ds239047.mlab.com:39047/gohealth-interview'
 
+// build model for data structure
 var Applicant = mongoose.model('Prospect', {
     first_name: String,
     last_name: String,
@@ -18,21 +24,20 @@ var Applicant = mongoose.model('Prospect', {
     hasInsurance: Boolean
 })
 
+//connect to database service
+mongoose.connect(dbURL, (err) => {
+    console.log("Mongo DB Connection", err)
+})
+
+//store api response
 var resultJSON
+
+//store form data
 var formDataObj
 
 
 
-//require('ssl-root-cas').inject()
-
-app.use(express.static(__dirname))
-app.use(bodyParser.json())
-app.use(bodyParser.urlencoded({extended: false}))
-
-app.get('/messages', (req, res) => {
-    res.send(resultJSON)
-})
-
+// post functionality
 app.post('/messages', (req, res) => {
     formDataObj = req.body
 
@@ -43,28 +48,27 @@ app.post('/messages', (req, res) => {
         if(err)
             sendStatus(500)
 
-        //check coverage status from API
-        checkInsuranceCoverage()
+        //check coverage status from API if they indicate they have insurance
+        if(formDataObj.hasInsurance == "true"){
+            checkInsuranceCoverage()
+        } else {
+            io.emit('infoSaved')
+        }
 
-        //send result to browser
-        
+        //send status to browser       
         res.sendStatus(200)
-        //res.send(resultJSON)
         
 
     })
    
 })
 
+// start server
 var server = http.listen(3000, () => {
     console.log('server is listening on port', server.address().port)
 })
 
-io.on('connection', (socket) => {
-    console.log('a user connected')
-})
-
-
+// form the api call, send and handle response
 function checkInsuranceCoverage(){
     var options = { method: 'POST',
     url: 'https://apistage.gohealthuc.com:1981/v1/eligibility_demo',
@@ -82,11 +86,14 @@ function checkInsuranceCoverage(){
      formDataObj.trading_partner_id  +
      '"}',
     rejectUnauthorized: false };
-    //console.log("Options = " + options.body)
+
+    //send api request
     request(options, function (error, response, body) {
         if (error) throw new Error(error);
       
         resultJSON = body;
+
+        //send api result to browser client
         io.emit('result', resultJSON)
         console.log(response.statusCode)
     });
@@ -104,6 +111,3 @@ function checkInsuranceCoverage(){
 //Case 5
 //body: '{"member":{"first_name":"Rita","last_name":"Book","id":"345123987","birth_date":"1991-10-31"},"provider":{"first_name":"Marty","last_name":"Seeger","npi":"1234567890"},"trading_partner_id":"united_health_care"}',
 
-mongoose.connect(dbURL, (err) => {
-    console.log("Mongo DB Connection", err)
-})
