@@ -1,0 +1,12 @@
+{
+  "name": "gohealth-test-application",
+  "version": "1.0.0",
+  "description": "Application created as an interview requirement for Full Stack Developer Position",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "",
+  "license": "ISC"
+}

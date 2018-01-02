@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>GoHealth</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/css/bootstrap.min.css" integrity="sha384-PsH8R72JQ3SOdhVi3uxftmaW6Vc51MKb0q5P2rRUpPvrszuE4W1povHYgTpBfshb" crossorigin="anonymous">
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.3/umd/popper.min.js" integrity="sha384-vFJXuSJphROIrBnz7yo7oB41mKfc8JzQZiCq4NCceLEaO4IHwicKwpJf9c9IpFgh" crossorigin="anonymous"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0-beta.2/js/bootstrap.min.js" integrity="sha384-alpBpkh1PFOepccYVYDB4do5UnbKysX5WZXm3XxPqe5iKTfUKjNkCk9SaVuEZflJ" crossorigin="anonymous"></script>    
+    <script src="/socket.io/socket.io.js"></script>
+    <style type="text/css">
+        #messages{
+            padding-top:15px;
+        }
+
+        .additionalQuestions{
+            display:none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-10 offset-lg-1">           
+                <div class="jumbotron">
+                    <h1 class="display-5">GoHealth Insurance Verification</h1>
+                    
+                    <div class="row">
+                    <div class="col-md">First Name<input id="first_name" type="text" class="form-control"></div>
+                    <div class="col-md">Last Name<input id="last_name" type="text" class="form-control"></div>
+                    </div>
+                    
+                    
+                    <div class="row">
+                        <div class="col-md-6">
+                            DOB
+                            <div class="row no-gutters">
+                                <div class="col"><input type="number" class="form-control" id="dob-month"></div>
+                                <div class="col"><input type="number" class="form-control" id="dob-day"></div>
+                                <div class="col-5"><input type="number" class="form-control" id="dob-year"></div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="row no-gutters">
+                                <div class="col-md">Phone Number<input type="text" class="form-control" id="phone-number"></div>
+                            </div>
+                        </div>
+                    
+                    
+                    </div>
+                    
+                    <br />
+                    
+                    <div class="row">
+                        <div class="col">
+                            Do you currently have health insurance? <br />
+                            <input type="radio" name="ins_cov" id="ins_cov_0" value="false"> <label for="ins_cov_0">No</label>
+                            <input type="radio" name="ins_cov" id="ins_cov_1" value="true"> <label for="ins_cov_1">Yes</label>
+                        </div>
+                    </div>
+                    
+                    <div class="row additionalQuestions">
+                        <div class="col">
+                            Insurance Carrier <input type="text" class="form-control" name="insCarrier" id="insCarrier"><br />
+                            Insurance ID <input type="text" class="form-control" name="insId" id="insId"><br />
+                        </div>
+                    </div>
+                    
+                    <div class="row">
+                        <div class="col">
+                            <button class="btn btn-success" id="sendButton">Submit Info</button>
+                        </div>
+                    </div>
+    
+                    <div class="row">
+                        <div class="col">
+                            <div id="messages">
+                                    
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        var socket = io()
+        var obj
+        $(() => {
+            //record original send button text
+            var sndbtntxt = $('#sendButton').text()
+
+            //hide additionalQuestions
+
+            //getMessages()
+            $("#sendButton").click(()=>{
+                var formData = buildFormDataObj()
+                sendRequest(formData)
+            })
+
+            $('input:radio[name=ins_cov]').click(function() {
+                var value = $(this).val();
+                $(".additionalQuestions").toggle(value)
+                
+                if(value == "true"){
+                    $('#sendButton').text("Check Your Coverage Status")
+                } else {
+                    $('#sendButton').text(sndbtntxt)
+                }
+                    
+            });
+        })
+
+        socket.on('result', displayMessage)
+
+        function displayMessage(data){
+            //clear messages div
+            $("#messages").html("");
+
+            //console.log(data)
+            obj = jQuery.parseJSON( data );
+            // check for error msg from api
+            if(!obj.error){
+                // store coverage data
+                var activeCoverage = obj.data.coverage.active
+                var svcTypes = obj.data.coverage.service_types
+                var copayAmt = obj.data.coverage.copay[1].copayment.amount
+                console.log("Coverage active status is " + obj.data.coverage.active)
+                console.log(obj.data.coverage.copay[1].copayment.amount + " " + obj.data.coverage.copay[1].copayment.currency)
+                console.log(svcTypes)
+                //Check if urgent care is covered
+                urgentCareCovered = inArraySearch("urgent_care", svcTypes)
+                if(urgentCareCovered){
+                    console.log("Urgent Care is covered")
+                    $("#messages").append("<div class='alert alert-success'>Urgent Care services are covered by your insurance provider</div>")
+                    $("#messages").append("<div class='alert alert-success'>Your copayment amount will be <b>$" + copayAmt + "</b></div>")
+                } else {
+                    $("#messages").append("<div class='alert alert-danger'>Urgent Care services are not covered by your insurance provider</div>")
+                }
+
+            } else {
+                //invalid response from API
+                $("#messages").append("<div class='alert alert-danger'>We are unable to confirm your insurance coverage.</div>")
+                $("#messages").append("<div class='alert alert-danger'>Please contact your insurance provider for more information.</div>")
+            }
+            
+            
+
+            
+
+        }
+
+        function buildFormDataObj(){
+            //concantenate the dob values
+            var dobFullVal = $("#dob-year").val() + "-" + $("#dob-month").val() + "-" + $("#dob-day").val()
+            // convert the carrier name to the api formatted value
+            var carrierConverted = convertCarrierName($("#insCarrier").val())
+            var formDataObj = {
+                "first_name": $("#first_name").val(),
+                "last_name": $("#last_name").val(),
+                "birth_date": dobFullVal,
+                "id": $("#insId").val(),
+                "trading_partner_id": carrierConverted,
+                "phoneNum": $("#phone-number").val(),
+                "hasInsurance": $('input:radio[name=ins_cov]:checked').val()
+            }
+            return formDataObj
+        }
+
+        function getMessages() {
+            $.get('http://localhost:3000/messages', (data) => {
+                
+            })
+        }
+
+        function sendRequest(theFormData){
+            $.post('http://localhost:3000/messages', theFormData)
+        }
+
+        function inArraySearch(check, array){
+            var valueCheck = $.inArray(check, array)
+            console.log(valueCheck)
+            if (valueCheck == -1){
+                return false
+            } else {
+                
+                return true
+                
+            }
+        }
+
+        function convertCarrierName(carrierName){
+            if (carrierName == "Blue Cross/Blue Shield"){
+                return "empire_blue_cross_blue_shield"
+            }
+            return carrierName
+                .toLowerCase()
+                .replace(/ /g,'_')
+                .replace(/[^\w-]+/g,'')
+        }
+    </script>
+</body>
+</html>
