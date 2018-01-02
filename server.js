@@ -10,6 +10,11 @@ app.use(express.static(__dirname))
 app.use(bodyParser.json())
 app.use(bodyParser.urlencoded({extended: false}))
 
+// start server
+var server = http.listen(3000, () => {
+    console.log('server is listening on port', server.address().port)
+})
+
 //url for database
 var dbURL = 'mongodb://GoHealthFormData:N83H5hWJZTCa@ds239047.mlab.com:39047/gohealth-interview'
 
@@ -63,10 +68,7 @@ app.post('/messages', (req, res) => {
    
 })
 
-// start server
-var server = http.listen(3000, () => {
-    console.log('server is listening on port', server.address().port)
-})
+
 
 // form the api call, send and handle response
 function checkInsuranceCoverage(){
